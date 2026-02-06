@@ -268,6 +268,7 @@ export const generateQuestions = async (subject: string, count: number = 15): Pr
   } catch {
     manualQuestions = [];
   }
+  
   let selectedManual: Question[] = [];
   if (manualQuestions.length > 0) {
     const shuffled = [...manualQuestions].sort(() => Math.random() - 0.5);
@@ -276,107 +277,102 @@ export const generateQuestions = async (subject: string, count: number = 15): Pr
       id: q.id || `db-${Date.now()}-${i}`
     }));
   }
-  const remainingCount = Math.max(0, count - selectedManual.length);
   
-  if (remainingCount === 0) {
-    return manualQuestions.slice(0, count);
+  const initialNeeded = count - selectedManual.length;
+  if (initialNeeded <= 0) {
+    return selectedManual.slice(0, count);
   }
 
   let aiQuestions: Question[] = [];
   
   if (genAI) {
-    try {
-      const seed = `${Date.now()}-${Math.random()}`;
-      const prompt = `Generate ${remainingCount} advanced, difficult multiple choice questions for the subject "${subject}" appropriate for a Senior Secondary School 3 (SS3) / University preparation level student in Nigeria.
-      The questions should test deep understanding and critical thinking, not just basic recall. Each question must be distinct and new for this session.
-      Randomization token: ${seed}
-      You may occasionally include 1–2 repeated questions in the set.
-      IMPORTANT: Return the response strictly as a valid JSON array of objects. Do not use markdown.
-      Each object:
-        {
-          "text": "Question text",
-          "options": ["A", "B", "C", "D"],
-          "correctAnswer": 0,
-          "explanation": "Detailed explanation in plain text without markdown symbols"
-        }`;
-
-      const text = await tryGenerateText(prompt);
-      
-      const cleanedText = text.replace(/```json/g, '').replace(/```/g, '').trim();
-      
-      try {
-        const parsedQuestions = JSON.parse(cleanedText);
-        aiQuestions = parsedQuestions.map((q: { text: string; options: string[]; correctAnswer: number; explanation?: string }, i: number) => ({
-          id: `ai-${Date.now()}-${i}`,
-          text: q.text,
-          options: q.options,
-          correctAnswer: q.correctAnswer,
-          explanation: q.explanation
-        }));
-        if (aiQuestions.length < remainingCount) {
-          aiQuestions = [
-            ...aiQuestions,
-            ...generateMockQuestions(subject, remainingCount - aiQuestions.length)
-          ];
+    let attempts = 0;
+    const maxAttempts = 3;
+    
+    // Loop until we have enough questions or run out of attempts
+    while (aiQuestions.length < initialNeeded && attempts < maxAttempts) {
+        attempts++;
+        const currentNeeded = initialNeeded - aiQuestions.length;
+        
+        try {
+          const seed = `${Date.now()}-${Math.random()}`;
+          // Request slightly more than needed to be safe
+          const requestCount = Math.max(currentNeeded, 2); 
+          
+          const prompt = `Generate ${requestCount} advanced, difficult multiple choice questions for the subject "${subject}" appropriate for a Senior Secondary School 3 (SS3) / University preparation level student in Nigeria.
+          The questions should test deep understanding and critical thinking, not just basic recall. Each question must be distinct and new for this session.
+          Randomization token: ${seed}
+          
+          IMPORTANT: Return the response strictly as a valid JSON array of objects. Do not use markdown.
+          Each object:
+            {
+              "text": "Question text",
+              "options": ["A", "B", "C", "D"],
+              "correctAnswer": 0, // index of correct option (0-3)
+              "explanation": "Detailed, helpful explanation in plain text without markdown."
+            }`;
+    
+          const text = await tryGenerateText(prompt);
+          
+          const cleanedText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+          
+          const parsedQuestions = JSON.parse(cleanedText);
+          
+          const newQuestions = parsedQuestions.map((q: any, i: number) => ({
+            id: `ai-${Date.now()}-${attempts}-${i}`,
+            text: q.text,
+            options: q.options,
+            correctAnswer: q.correctAnswer,
+            explanation: q.explanation
+          }));
+          
+          aiQuestions = [...aiQuestions, ...newQuestions];
+          
+        } catch (error) {
+          console.error(`Gemini generation attempt ${attempts} failed:`, error);
         }
-        const allowRepeats = Math.random() < 0.35;
-        if (allowRepeats) {
-          const repeatCount = Math.random() < 0.5 ? 1 : 2;
-          for (let r = 0; r < repeatCount && aiQuestions.length > 0; r++) {
-            const idx = Math.floor(Math.random() * aiQuestions.length);
-            const original = aiQuestions[idx];
-            aiQuestions.push({
-              ...original,
-              id: `ai-repeat-${Date.now()}-${idx}-${r}`
-            });
-          }
-        }
-        if (aiQuestions.length > remainingCount) {
-          aiQuestions = aiQuestions.slice(0, remainingCount);
-        }
-      } catch (parseError) {
-        console.error("Failed to parse Gemini response:", text);
-        throw parseError; 
-      }
-      
-    } catch (error) {
-      console.error("Gemini generation failed:", error);
-      aiQuestions = generateMockQuestions(subject, remainingCount);
     }
   } else {
     console.warn("No Gemini API key found. Using mock data.");
-    aiQuestions = generateMockQuestions(subject, remainingCount);
   }
-
-  return [...selectedManual, ...aiQuestions];
+  
+  // If we still don't have enough, fill with mocks
+  const totalQuestions = selectedManual.length + aiQuestions.length;
+  if (totalQuestions < count) {
+    const mocks = generateMockQuestions(subject, count - totalQuestions);
+    aiQuestions = [...aiQuestions, ...mocks];
+  }
+  
+  return [...selectedManual, ...aiQuestions].slice(0, count);
 };
 
-export const getExplanation = async (question: string, answer: string, isCorrect: boolean): Promise<string> => {
+export const getExplanation = async (question: string, answer: string, isCorrect: boolean, subject: string = "General Knowledge"): Promise<string> => {
   if (genAI) {
      try {
-       const prompt = `Provide a helpful, educational explanation for this question: "${question}".
-       The student answered: "${answer}".
-       This answer is ${isCorrect ? "CORRECT" : "INCORRECT"}.
-       Explain why it is correct or incorrect and provide the reasoning clearly and concisely to help the student learn.
-       Address the student directly.
-       Randomization token: ${Date.now()}-${Math.random()}
-       Ensure the explanation phrasing is unique compared to typical textbook wording.
-       
-       IMPORTANT FORMATTING:
-       - Do NOT use markdown symbols like *, **, #, or code blocks.
-       - Use plain text with clear paragraph spacing.
-       - Write naturally as if speaking to the student.`;
+       const prompt = `You are a friendly and encouraging AI tutor for Nigerian students.
+    Subject: ${subject}
+    
+    Your goal is to explain the following question and answer clearly, like a helpful teacher.
+    Question: "${question}"
+    Student's Answer: "${answer}"
+    Status: ${isCorrect ? "CORRECT" : "INCORRECT"}
+    
+    Instructions:
+    1. Start with a warm, natural opening (e.g., "Great job!", "Not quite, but good try!", "That's correct!").
+    2. Explain the concept simply. Imagine you are talking to a student in a classroom.
+    3. Avoid robotic phrases like "The correct answer is option B because...". Instead say "The reason this is right is..." or "Here's why...".
+    4. Keep it concise but educational.
+    5. Do NOT use markdown symbols (*, #, etc). Plain text only.
+    
+    Randomization: ${Date.now()}`;
        const text = await tryGenerateText(prompt);
        const clean = text.replace(/[*#`]/g, "").trim();
        if (!clean) {
-         return `Let's break this down. Your answer was "${answer}". That is ${isCorrect ? "correct" : "not correct"}.
+         return `That is ${isCorrect ? "correct" : "incorrect"}. Here is the explanation:
          
-Here is the reasoning in simple steps:
-1) Identify the key concept in the question.
-2) Apply the correct rule/formula/definition.
-3) Check alternatives to avoid common pitfalls.
+The key concept here is to understand the specific rules of ${subject}. Review the question carefully and try to recall the fundamental principles.
          
-Practice this approach on the next question to reinforce understanding.`;
+Keep practicing!`;
        }
        return clean;
      } catch (e) {
@@ -384,61 +380,52 @@ Practice this approach on the next question to reinforce understanding.`;
      }
   }
   
-  const localFallback = `Let's break this down. Your answer was "${answer}". That is ${isCorrect ? "correct" : "not correct"}.
-  
-Think of the core idea behind the question and apply it step by step:
-1) Identify the exact concept being tested.
-2) Recall the correct rule, formula, or definition.
-3) Work through the steps carefully and check each option.
-4) Note a common mistake and why it leads to the wrong choice.
-  
-Use this approach on the next question to reinforce understanding.`;
+  const localFallback = `That is ${isCorrect ? "correct" : "incorrect"}.
+
+To understand this better:
+1. Look at the key terms in the question.
+2. Recall the basic definitions.
+3. Eliminate the obviously wrong options.
+
+Keep going, you're doing well!`;
   return localFallback;
 }
 
 export const getChatResponse = async (message: string, subject: string, history: {role: string, content: string}[], context?: string): Promise<string> => {
   const tutorFallback = (): string => {
-    const lastUser = history.filter(h => h.role === "user").slice(-1)[0]?.content || message;
-    const ctx = context ? `Context: ${context}\n\n` : "";
-    return `${ctx}Let's focus on ${subject}.
-I read: "${lastUser}".
-Brief plan: identify the concept, apply the right rule, and check alternatives.
-What part should I explain first?`;
+    return `I'm having a little trouble connecting right now, but I'm here to help with ${subject}. Could you rephrase your question?`;
   };
 
   try {
     let contextPrompt = "";
     if (context) {
-      contextPrompt = `\nCurrent Context (The user is currently viewing/discussing this): ${context}`;
+      contextPrompt = `\nCurrent Activity Context: ${context}`;
     }
 
-    const prompt = `You are an expert AI tutor for the subject: ${subject}.
-    You are helping a Nigerian student prepare for their exams (WAEC/JAMB).
-    Be encouraging and clear.
-    Randomization token: ${Date.now()}-${Math.random()}
-    Ensure your response phrasing is unique and not repetitive across turns.
+    const prompt = `You are "LearnAI", a friendly, enthusiastic, and knowledgeable AI tutor helping a Nigerian student with ${subject}.
     
-    IMPORTANT FORMATTING:
-    - Do NOT use markdown symbols like *, **, #, or code blocks.
-    - Use plain text with clear paragraph spacing.
-    - Write naturally as if speaking to the student (e.g. use "I think...", "Let's look at...").
-    - Avoid complex symbols that might confuse the student.
-    - Keep it concise: 2–4 short sentences or a 3-step list max.
-    - Ask at most one brief follow-up question.
+    Tone & Style:
+    - conversational, encouraging, and natural.
+    - NEVER use "Thinking..." or robotic intros.
+    - Speak like a supportive teacher or smart study buddy.
+    - Use clear, simple English.
     
-    LEARNING CONTEXT:
-    - Adapt your teaching style based on the student's questions and current context.
-    - If they are struggling (getting answers wrong), break things down simply.
-    - If they are advancing, challenge them slightly more.
-    
+    Context:
     ${contextPrompt}
     
-    Previous conversation:
-    ${history.map(msg => `${msg.role}: ${msg.content}`).join('\n')}
+    Conversation History:
+    ${history.map(msg => `${msg.role === 'user' ? 'Student' : 'Tutor'}: ${msg.content}`).join('\n')}
     
-    Student: ${message}
+    Student's New Message: "${message}"
     
-    Tutor:`;
+    Task:
+    - Reply to the student's message.
+    - Answer their question or guide them if they are stuck.
+    - Keep responses concise (2-3 paragraphs max).
+    - Do NOT use markdown formatting (no bold, italics, or code blocks).
+    - If they got a question wrong, help them understand why without giving the answer away immediately if they are retrying.
+    
+    Your Reply:`;
 
     if (!genAI) return tutorFallback();
     const text = await tryGenerateText(prompt);

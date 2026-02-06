@@ -142,7 +142,8 @@ const Subject = () => {
     const aiExplanation = await getExplanation(
       currentQuestion.text,
       currentQuestion.options[selectedAnswer],
-      isCorrect
+      isCorrect,
+      subjectName
     );
     setExplanation(aiExplanation);
     setShowExplanation(true);
@@ -386,8 +387,11 @@ const Subject = () => {
                       {chatLoading && (
                         <div className="flex justify-start">
                           <div className="bg-muted p-3 rounded-2xl rounded-tl-none flex items-center gap-2">
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            <span className="text-sm text-muted-foreground">Thinking...</span>
+                            <span className="flex gap-1 items-center h-4">
+                              <span className="w-1.5 h-1.5 bg-primary/50 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                              <span className="w-1.5 h-1.5 bg-primary/50 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                              <span className="w-1.5 h-1.5 bg-primary/50 rounded-full animate-bounce"></span>
+                            </span>
                           </div>
                         </div>
                       )}
