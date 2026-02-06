@@ -6,11 +6,12 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Loader2, Upload, CheckCircle2 } from "lucide-react";
 import { subjectData } from "@/lib/constants";
-import { bulkInsertQuestions } from "@/lib/db";
+import { bulkInsertQuestions, fetchAllQuestions } from "@/lib/db";
 import { useToast } from "@/hooks/use-toast";
 import * as pdfjsLib from "pdfjs-dist";
 import type { Question } from "@/lib/constants";
 import { motion } from "framer-motion";
+import { generateQuestions } from "@/lib/ai";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.234/pdf.worker.min.js";
 
@@ -113,6 +114,29 @@ const Admin = () => {
     }
   };
 
+  const handleSeedAll = async () => {
+    setUploading(true);
+    setInsertedCount(null);
+    try {
+      let totalInserted = 0;
+      for (const s of subjectOptions) {
+        const existing = await fetchAllQuestions(s);
+        const missing = Math.max(0, 15 - existing.length);
+        if (missing > 0) {
+          const generated = await generateQuestions(s, missing);
+          const res = await bulkInsertQuestions(s, generated);
+          totalInserted += res.inserted;
+        }
+      }
+      setInsertedCount(totalInserted);
+      toast({ title: "Seeding complete", description: `${totalInserted} questions inserted across subjects` });
+    } catch {
+      toast({ variant: "destructive", title: "Seeding failed", description: "Could not seed questions across subjects" });
+    } finally {
+      setUploading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -159,6 +183,12 @@ const Admin = () => {
                 <Button onClick={handleParse} disabled={!file || parsing}>
                   {parsing ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                   {parsing ? "Reading PDF..." : "Read PDF"}
+                </Button>
+              </div>
+              <div className="flex items-center gap-3">
+                <Button variant="outline" onClick={handleSeedAll} disabled={uploading}>
+                  {uploading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                  {uploading ? "Seeding..." : "Seed all subjects (15 each)"}
                 </Button>
               </div>
               {parsed.length > 0 && (
