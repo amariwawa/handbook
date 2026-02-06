@@ -3,14 +3,14 @@ import type { Question } from "./constants";
 import { fetchAllQuestions } from "@/lib/db";
 
 let CURRENT_API_KEY: string | undefined =
-  (typeof window !== "undefined" ? window.localStorage.getItem("GEMINI_API_KEY") || undefined : undefined) ||
-  import.meta.env.VITE_GEMINI_API_KEY;
+  import.meta.env.VITE_GEMINI_API_KEY ||
+  (typeof window !== "undefined" ? window.localStorage.getItem("GEMINI_API_KEY") || undefined : undefined);
 
 let genAI: GoogleGenerativeAI | null = CURRENT_API_KEY ? new GoogleGenerativeAI(CURRENT_API_KEY) : null;
 
 try {
-  if (typeof window !== "undefined" && CURRENT_API_KEY && !window.localStorage.getItem("GEMINI_API_KEY")) {
-    window.localStorage.setItem("GEMINI_API_KEY", CURRENT_API_KEY);
+  if (typeof window !== "undefined" && import.meta.env.VITE_GEMINI_API_KEY) {
+    window.localStorage.setItem("GEMINI_API_KEY", import.meta.env.VITE_GEMINI_API_KEY);
   }
 } catch { void 0; }
 
