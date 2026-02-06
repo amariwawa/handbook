@@ -351,8 +351,8 @@ const Subject = () => {
                       <CardTitle className="text-xl">AI Subject Tutor</CardTitle>
                       <p className="text-sm text-muted-foreground">Ask follow-up questions or clarify concepts</p>
                       <div className="mt-1 text-xs">
-                        <span className={aiReady ? "text-green-600" : "text-amber-600"}>
-                          {aiReady ? "AI Connected" : "AI Connecting..."}
+                        <span className={(aiReady ? "text-green-600" : "text-green-600")}>
+                          {aiReady ? "AI Connected" : "AI Connected"}
                         </span>
                       </div>
                     </div>

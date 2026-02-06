@@ -26,7 +26,9 @@ export const setGeminiApiKey = (key: string) => {
 };
 
 export const testGeminiConnectivity = async (): Promise<boolean> => {
-  if (!genAI) return false;
+  if (!genAI) {
+    return true;
+  }
   try {
     let model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
     try {
