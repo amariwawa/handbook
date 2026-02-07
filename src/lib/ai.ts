@@ -318,7 +318,12 @@ export const generateQuestions = async (subject: string, count: number = 15): Pr
           
           const parsedQuestions = JSON.parse(cleanedText);
           
-          const newQuestions = parsedQuestions.map((q: any, i: number) => ({
+          const newQuestions = (parsedQuestions as Array<{
+            text: string;
+            options: string[];
+            correctAnswer: number;
+            explanation?: string;
+          }>).map((q, i: number) => ({
             id: `ai-${Date.now()}-${attempts}-${i}`,
             text: q.text,
             options: q.options,

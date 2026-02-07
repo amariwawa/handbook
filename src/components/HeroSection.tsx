@@ -56,12 +56,30 @@ export const HeroSection = () => {
       {/* Background Image with Overlay */}
       <div className="absolute inset-0 z-0">
         <img
-          src={heroImage}
+          src={
+            isLight
+              ? "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=1600&h=900&fit=crop&auto=format&dpr=2"
+              : heroImage
+          }
           alt="Nigerian graduates celebrating"
-          className={`w-full h-full object-cover object-center ${isLight ? "brightness-105 contrast-105" : ""}`}
+          className={`w-full h-full object-cover object-center ${
+            isLight ? "brightness-95 contrast-105" : ""
+          }`}
         />
-        <div className={`absolute inset-0 ${isLight ? "bg-gradient-to-b from-background/30 via-background/20 to-background/30" : "bg-gradient-to-b from-background/80 via-background/70 to-background"}`} />
-        <div className={`absolute inset-0 ${isLight ? "bg-gradient-to-r from-background/40 via-transparent to-background/40" : "bg-gradient-to-r from-background/90 via-transparent to-background/90"}`} />
+        <div
+          className={`absolute inset-0 ${
+            isLight
+              ? "bg-gradient-to-b from-black/50 via-black/40 to-black/50"
+              : "bg-gradient-to-b from-background/80 via-background/70 to-background"
+          }`}
+        />
+        <div
+          className={`absolute inset-0 ${
+            isLight
+              ? "bg-gradient-to-r from-black/40 via-transparent to-black/40"
+              : "bg-gradient-to-r from-background/90 via-transparent to-background/90"
+          }`}
+        />
       </div>
 
       {/* Floating Particles */}
@@ -125,7 +143,7 @@ export const HeroSection = () => {
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.4 }}
-            className={`section-subtitle mb-10 ${isLight ? "text-black" : ""}`}
+            className={`section-subtitle mb-10 ${isLight ? "text-white" : ""}`}
           >
             Your personal AI tutor that explains every question, understands your 
             learning style, and adapts to help you excel in Nigerian examinations.
@@ -163,7 +181,7 @@ export const HeroSection = () => {
                 <div className="text-3xl font-display font-semibold text-gradient">
                   {stat.value}
                 </div>
-                <div className={`${isLight ? "text-black" : "text-muted-foreground"} text-sm`}>{stat.label}</div>
+                <div className={`${isLight ? "text-white/90" : "text-muted-foreground"} text-sm`}>{stat.label}</div>
               </div>
             ))}
           </motion.div>

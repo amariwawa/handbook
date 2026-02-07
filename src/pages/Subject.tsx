@@ -37,6 +37,17 @@ const Subject = () => {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null);
+  const [isLight, setIsLight] = useState(
+    typeof document !== "undefined" &&
+    document.documentElement.getAttribute("data-theme") === "light"
+  );
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      setIsLight(document.documentElement.getAttribute("data-theme") === "light");
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     const loadVoices = () => {
@@ -226,7 +237,7 @@ const Subject = () => {
             className="absolute inset-0 w-full h-full object-cover"
           />
         )}
-        <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+        <div className={`absolute inset-0 ${isLight ? "bg-black/70" : "bg-black/60"} flex items-center justify-center`}>
           <div className="text-center text-white p-4">
              <h1 className="text-4xl md:text-5xl font-bold mb-4">{subjectName}</h1>
              <p className="text-xl text-gray-200">AI-Powered Past Questions & Answers</p>
